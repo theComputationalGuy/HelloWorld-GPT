@@ -29,6 +29,27 @@ itos = {i:s for i,s in enumerate(chars)}
 encode = lambda s: [stoi[c] for c in s]
 decode = lambda s: [itos[c] for c in s]
 
+class Head(nn.Module):
+  def __init__(self, head_size) -> None:
+    self.key = nn.Linear(n_embd, head_size, bias=False)
+    self.query = nn.Linear(n_embd, head_size, bias=False)
+    self.value = nn.Linear(n_embd, head_size, bias=False)
+    self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+    self.dropout = nn.Dropout(dropout)
+
+  def forward(self, x):
+    B, T, C = x.shape
+    k = self.key(x)
+    q = self.query(x)
+    v = self.value(x)
+    wt = q @ k.transpose(-2,-1) * C**-0.5 # (B, T, C) @ (B, C, T) -> (B, T, T)
+    wt = wt.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
+    wt = F.softmax(wt)
+    wt = self.dropout(wt)
+    out = wt @ v
+    
+    return out
+
 class BigramLanguageModel():
   def __init__(self):
     super().__init__()
