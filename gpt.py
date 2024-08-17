@@ -49,6 +49,19 @@ class Head(nn.Module):
     out = wt @ v
     
     return out
+  
+class MultiHeadAttention(nn.Module):
+  def __init__(self, num_heads, head_size) -> None:
+    super().__init__()
+    self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+    self.proj = nn.Linear(n_embd, n_embd)
+    self.dropout = nn.Dropout(dropout)
+
+  def forward(self):
+    out = torch.cat([h(x) for h in self.heads])
+    out = self.proj(out)
+    return out
+
 
 class BigramLanguageModel():
   def __init__(self):
