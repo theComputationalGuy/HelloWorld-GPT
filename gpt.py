@@ -27,7 +27,7 @@ stoi = {s:i for i,s in enumerate(chars)}
 itos = {i:s for i,s in enumerate(chars)}
 
 encode = lambda s: [stoi[c] for c in s]
-decode = lambda s: [itos[c] for c in s]
+decode = lambda s: ''.join([itos[c] for c in s])
 
 data = torch.tensor(encode(text), dtype=torch.long)
 n = int(0.9*len(data)) # first 90% will be train, rest val
@@ -60,6 +60,7 @@ def estimate_loss():
 
 class Head(nn.Module):
   def __init__(self, head_size) -> None:
+    super().__init__()
     self.key = nn.Linear(n_embd, head_size, bias=False)
     self.query = nn.Linear(n_embd, head_size, bias=False)
     self.value = nn.Linear(n_embd, head_size, bias=False)
@@ -73,7 +74,7 @@ class Head(nn.Module):
     v = self.value(x)
     wt = q @ k.transpose(-2,-1) * C**-0.5 # (B, T, C) @ (B, C, T) -> (B, T, T)
     wt = wt.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
-    wt = F.softmax(wt)
+    wt = F.softmax(wt, dim=-1)
     wt = self.dropout(wt)
     out = wt @ v
     
@@ -87,8 +88,8 @@ class MultiHeadAttention(nn.Module):
     self.dropout = nn.Dropout(dropout)
 
   def forward(self, x):
-    out = torch.cat([h(x) for h in self.heads])
-    out = self.proj(out)
+    out = torch.cat([h(x) for h in self.heads], dim=-1)
+    out = self.dropout(self.proj(out))
     return out
 
 
@@ -108,7 +109,7 @@ class FeedForward(nn.Module):
 
 
 class Block(nn.Module):
-  def __init__(self, num_heads, head_size) -> None:
+  def __init__(self, n_embd, n_head) -> None:
     super().__init__()
     head_size = n_embd // n_head
     self.sa = MultiHeadAttention(n_head, head_size)
@@ -122,7 +123,7 @@ class Block(nn.Module):
     return x
 
 
-class BigramLanguageModel():
+class BigramLanguageModel(nn.Module):
   def __init__(self) -> None:
     super().__init__()
     self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
